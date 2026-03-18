@@ -74,13 +74,9 @@ def get_status_emoji(days: int) -> str:
 # --- Add new item ---
 st.subheader(t("add_item_title"))
 
-col1, col2, col3 = st.columns([2, 1, 1])
-with col1:
-    item_name = st.text_input(t("item_name"), placeholder=t("item_name_placeholder"))
-with col2:
-    purchase_date = st.date_input(t("purchase_date"), value=date.today())
-with col3:
-    expiry_date = st.date_input(t("expiry_date"), value=None)
+item_name = st.text_input(t("item_name"), placeholder=t("item_name_placeholder"))
+purchase_date = st.date_input(t("purchase_date"), value=date.today())
+expiry_date = st.date_input(t("expiry_date"), value=None)
 
 if st.button(t("add_button"), type="primary"):
     if not item_name.strip():
@@ -124,21 +120,28 @@ if st.session_state.fridge_items:
         emoji = get_status_emoji(days)
         remaining = format_remaining(days, lang)
 
-        col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
-        with col1:
-            st.markdown(f"{emoji} **{item['name']}**")
-        with col2:
-            st.caption(f"{t('purchased')}: {item['purchase_date']}")
-        with col3:
-            if days < 0:
-                st.markdown(f":red[**{remaining}**]")
-            elif days <= 3:
-                st.markdown(f":orange[**{remaining}**]")
-            else:
-                st.markdown(f":green[{remaining}]")
-        with col4:
-            if st.button("\U0001F5D1", key=f"del_{idx}"):
-                items_to_delete.append(idx)
+        if days < 0:
+            bg_color = "#FFE0E0"
+            border_color = "#FF8A8A"
+        elif days <= 3:
+            bg_color = "#FFF3E0"
+            border_color = "#FFB74D"
+        else:
+            bg_color = "#F0F0F0"
+            border_color = "#E0E0E0"
+
+        st.markdown(
+            f'<div style="background:{bg_color}; border:1px solid {border_color}; '
+            f'border-radius:8px; padding:12px; margin-bottom:8px;">'
+            f'<div style="font-size:1.1rem; font-weight:bold;">{emoji} {item["name"]}</div>'
+            f'<div style="color:#666; font-size:0.85rem; margin-top:4px;">'
+            f'{t("purchased")}: {item["purchase_date"]}</div>'
+            f'<div style="font-weight:bold; margin-top:4px;">{remaining}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("\U0001F5D1", key=f"del_{idx}"):
+            items_to_delete.append(idx)
 
     if items_to_delete:
         for idx in sorted(items_to_delete, reverse=True):
