@@ -90,8 +90,9 @@ if "fridge_items" not in st.session_state:
 
 def get_days_remaining(expiry_str: str) -> int:
     """Calculate days remaining until expiry."""
-    expiry = pendulum.parse(expiry_str, tz=None)
-    today = pendulum.today()
+    from datetime import date as _date
+    expiry = _date.fromisoformat(str(expiry_str)[:10])
+    today = _date.today()
     return (expiry - today).days
 
 
