@@ -33,5 +33,6 @@
   "import_success": "Imported {count} items",
   "import_error": "Import failed: {error}",
   "clear_all": "Clear All",
-  "no_items": "No items yet. Use the quick-add buttons or form above to get started."
+  "no_items": "No items yet. Use the quick-add buttons or form above to get started.",
+  "report_issue": "Report an issue"
 }
