@@ -19,6 +19,9 @@ from datetime import date, datetime, timedelta
 
 import pendulum
 import humanize
+from streamlit_js_eval import streamlit_js_eval
+
+STORAGE_KEY = "kf-fridge-watch-items"
 
 # --- Food Database ---
 FOOD_DB = {
@@ -86,6 +89,22 @@ render_header()
 # --- Session state initialization ---
 if "fridge_items" not in st.session_state:
     st.session_state.fridge_items = []
+
+# --- Load from localStorage ---
+if "data_loaded" not in st.session_state:
+    stored = streamlit_js_eval(js_expressions=f'localStorage.getItem("{STORAGE_KEY}")')
+    if stored and stored != "null":
+        try:
+            st.session_state.fridge_items = json.loads(stored)
+        except Exception:
+            pass
+    st.session_state.data_loaded = True
+
+
+def save_to_local_storage():
+    """Save fridge_items to browser localStorage."""
+    data_json = json.dumps(st.session_state.fridge_items, ensure_ascii=False)
+    streamlit_js_eval(js_expressions=f'localStorage.setItem("{STORAGE_KEY}", {json.dumps(data_json)})')
 
 
 def get_days_remaining(expiry_str: str) -> int:
@@ -177,6 +196,7 @@ for row_start in range(0, len(QUICK_ADD_ITEMS), cols_per_row):
             with col:
                 if st.button(f"{emoji}\n{item_name}", key=f"quick_{item_name}", use_container_width=True):
                     add_item_to_fridge(item_name)
+                    save_to_local_storage()
                     st.success(t("item_added").format(name=item_name))
                     st.rerun()
 
@@ -210,6 +230,7 @@ if st.button(t("add_button"), type="primary"):
             "purchase_date": str(purchase_date),
             "expiry_date": str(expiry_date),
         })
+        save_to_local_storage()
         st.success(t("item_added").format(name=item_name.strip()))
         st.rerun()
 
@@ -294,6 +315,7 @@ if st.session_state.fridge_items:
     if items_to_delete:
         for idx in sorted(items_to_delete, reverse=True):
             st.session_state.fridge_items.pop(idx)
+        save_to_local_storage()
         st.rerun()
 
     st.markdown("---")
@@ -349,6 +371,7 @@ if st.session_state.fridge_items:
                         "expiry_date": item["expiry_date"],
                     })
 
+            save_to_local_storage()
             st.success(t("import_success").format(count=len(imported)))
             st.rerun()
         except Exception as e:
@@ -357,6 +380,7 @@ if st.session_state.fridge_items:
     # Clear all
     if st.button(t("clear_all"), type="secondary"):
         st.session_state.fridge_items = []
+        save_to_local_storage()
         st.rerun()
 
 else:
