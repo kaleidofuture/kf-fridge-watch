@@ -363,4 +363,4 @@ else:
     st.info(t("no_items"))
 
 # --- Footer ---
-render_footer(libraries=["Pendulum", "Humanize"])
+render_footer(libraries=["Pendulum", "Humanize"], repo_name="kf-fridge-watch")
