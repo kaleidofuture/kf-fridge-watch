@@ -15,10 +15,70 @@ from components.i18n import t
 import json
 import csv
 import io
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pendulum
 import humanize
+
+# --- Food Database ---
+FOOD_DB = {
+    # 卵・乳製品
+    "卵": {"category": "卵・乳製品", "default_days": 14, "freezable": False, "freeze_tip": ""},
+    "牛乳": {"category": "卵・乳製品", "default_days": 7, "freezable": True, "freeze_tip": "製氷皿で凍らせて料理用に（1ヶ月）"},
+    "ヨーグルト": {"category": "卵・乳製品", "default_days": 10, "freezable": True, "freeze_tip": "小分けにして冷凍OK（1ヶ月）"},
+    "バター": {"category": "卵・乳製品", "default_days": 30, "freezable": True, "freeze_tip": "小分けラップで冷凍OK（1ヶ月）"},
+    "チーズ": {"category": "卵・乳製品", "default_days": 14, "freezable": True, "freeze_tip": "シュレッドチーズはそのまま冷凍OK（1ヶ月）"},
+    # 肉類
+    "豚肉": {"category": "肉類", "default_days": 3, "freezable": True, "freeze_tip": "小分けラップ→保存袋で冷凍OK（1ヶ月）"},
+    "鶏肉": {"category": "肉類", "default_days": 2, "freezable": True, "freeze_tip": "下味冷凍がおすすめ（1ヶ月）"},
+    "ハム": {"category": "肉類", "default_days": 7, "freezable": True, "freeze_tip": "1枚ずつラップで冷凍OK（1ヶ月）"},
+    "ベーコン": {"category": "肉類", "default_days": 7, "freezable": True, "freeze_tip": "小分けラップで冷凍OK（1ヶ月）"},
+    # 野菜
+    "キャベツ": {"category": "野菜", "default_days": 7, "freezable": True, "freeze_tip": "ざく切りで生のまま冷凍OK（1ヶ月）"},
+    "にんじん": {"category": "野菜", "default_days": 14, "freezable": True, "freeze_tip": "薄切り・短冊切りで冷凍OK（1ヶ月）"},
+    "たまねぎ": {"category": "野菜", "default_days": 30, "freezable": True, "freeze_tip": "みじん切りで冷凍→時短に（1ヶ月）"},
+    "じゃがいも": {"category": "野菜", "default_days": 30, "freezable": True, "freeze_tip": "マッシュにして冷凍OK（1ヶ月）"},
+    "トマト": {"category": "野菜", "default_days": 7, "freezable": True, "freeze_tip": "丸ごと冷凍→凍ったまますりおろしてソースに（1ヶ月）"},
+    "きゅうり": {"category": "野菜", "default_days": 5, "freezable": True, "freeze_tip": "薄切り＋塩もみして冷凍OK（2週間）"},
+    "レタス": {"category": "野菜", "default_days": 5, "freezable": False, "freeze_tip": ""},
+    "もやし": {"category": "野菜", "default_days": 2, "freezable": True, "freeze_tip": "袋のまま冷凍OK（2週間）"},
+    # 豆腐・大豆製品
+    "豆腐": {"category": "大豆製品", "default_days": 5, "freezable": True, "freeze_tip": "水切り後冷凍→高野豆腐風に（1ヶ月）"},
+    "納豆": {"category": "大豆製品", "default_days": 7, "freezable": True, "freeze_tip": "パックのまま冷凍OK（1ヶ月）"},
+    # パン
+    "食パン": {"category": "パン", "default_days": 4, "freezable": True, "freeze_tip": "1枚ずつラップ→保存袋で冷凍OK（1ヶ月）"},
+    # --- Additional items for DB lookup (not in quick-add grid) ---
+    "ごぼう": {"category": "野菜", "default_days": 7, "freezable": True, "freeze_tip": "茹でて冷凍OK（1ヶ月）"},
+    "ほうれん草": {"category": "野菜", "default_days": 3, "freezable": True, "freeze_tip": "茹でて水気を絞り冷凍OK（1ヶ月）"},
+    "ブロッコリー": {"category": "野菜", "default_days": 5, "freezable": True, "freeze_tip": "小房に分けて茹で冷凍OK（1ヶ月）"},
+    "大根": {"category": "野菜", "default_days": 10, "freezable": True, "freeze_tip": "カット→生のまま冷凍OK（1ヶ月）"},
+    "ねぎ": {"category": "野菜", "default_days": 7, "freezable": True, "freeze_tip": "小口切りで冷凍OK（1ヶ月）"},
+    "しめじ": {"category": "きのこ", "default_days": 5, "freezable": True, "freeze_tip": "ほぐして保存袋で冷凍OK（1ヶ月）"},
+    "えのき": {"category": "きのこ", "default_days": 5, "freezable": True, "freeze_tip": "ほぐして保存袋で冷凍OK（1ヶ月）"},
+    "豚ひき肉": {"category": "肉類", "default_days": 2, "freezable": True, "freeze_tip": "薄く平らにして冷凍OK（1ヶ月）"},
+    "鶏ひき肉": {"category": "肉類", "default_days": 2, "freezable": True, "freeze_tip": "薄く平らにして冷凍OK（1ヶ月）"},
+    "牛肉": {"category": "肉類", "default_days": 3, "freezable": True, "freeze_tip": "小分けラップ→保存袋で冷凍OK（1ヶ月）"},
+    "鮭": {"category": "魚介類", "default_days": 2, "freezable": True, "freeze_tip": "1切れずつラップで冷凍OK（2週間）"},
+    "ウインナー": {"category": "肉類", "default_days": 14, "freezable": True, "freeze_tip": "袋のまま冷凍OK（1ヶ月）"},
+}
+
+# Quick-add items (20 common foods)
+QUICK_ADD_ITEMS = [
+    "卵", "牛乳", "キャベツ", "にんじん", "豚肉",
+    "鶏肉", "豆腐", "もやし", "たまねぎ", "じゃがいも",
+    "トマト", "きゅうり", "レタス", "納豆", "ヨーグルト",
+    "バター", "チーズ", "ハム", "ベーコン", "食パン",
+]
+
+QUICK_ADD_EMOJIS = {
+    "卵": "\U0001F95A", "牛乳": "\U0001F95B", "キャベツ": "\U0001F966",
+    "にんじん": "\U0001F955", "豚肉": "\U0001F969", "鶏肉": "\U0001F357",
+    "豆腐": "\U0001FAD8", "もやし": "\U0001F331", "たまねぎ": "\U0001F9C5",
+    "じゃがいも": "\U0001F954", "トマト": "\U0001F345", "きゅうり": "\U0001F952",
+    "レタス": "\U0001F96C", "納豆": "\U0001FAD8", "ヨーグルト": "\U0001F95B",
+    "バター": "\U0001F9C8", "チーズ": "\U0001F9C0", "ハム": "\U0001F356",
+    "ベーコン": "\U0001F953", "食パン": "\U0001F35E",
+}
 
 # --- Header ---
 render_header()
@@ -71,12 +131,72 @@ def get_status_emoji(days: int) -> str:
         return "\U0001F7E2"
 
 
-# --- Add new item ---
+def lookup_food_db(name: str) -> dict | None:
+    """Look up a food item in the database. Returns entry or None."""
+    if name in FOOD_DB:
+        return FOOD_DB[name]
+    # Partial match fallback
+    for key, val in FOOD_DB.items():
+        if key in name or name in key:
+            return val
+    return None
+
+
+def get_default_expiry(name: str) -> date:
+    """Get default expiry date based on food DB, or 7 days fallback."""
+    entry = lookup_food_db(name)
+    days = entry["default_days"] if entry else 7
+    return date.today() + timedelta(days=days)
+
+
+def add_item_to_fridge(name: str, expiry: date | None = None):
+    """Add an item to the fridge with auto-expiry from DB."""
+    if expiry is None:
+        expiry = get_default_expiry(name)
+    st.session_state.fridge_items.append({
+        "name": name,
+        "purchase_date": str(date.today()),
+        "expiry_date": str(expiry),
+    })
+
+
+# --- Quick Add Section ---
+st.subheader(t("quick_add_title"))
+st.caption(t("quick_add_description"))
+
+# Display as a 5-column grid, 4 rows
+cols_per_row = 5
+for row_start in range(0, len(QUICK_ADD_ITEMS), cols_per_row):
+    cols = st.columns(cols_per_row)
+    for col_idx, col in enumerate(cols):
+        item_idx = row_start + col_idx
+        if item_idx < len(QUICK_ADD_ITEMS):
+            item_name = QUICK_ADD_ITEMS[item_idx]
+            emoji = QUICK_ADD_EMOJIS.get(item_name, "")
+            with col:
+                if st.button(f"{emoji}\n{item_name}", key=f"quick_{item_name}", use_container_width=True):
+                    add_item_to_fridge(item_name)
+                    st.success(t("item_added").format(name=item_name))
+                    st.rerun()
+
+st.markdown("---")
+
+# --- Add new item (manual) ---
 st.subheader(t("add_item_title"))
 
 item_name = st.text_input(t("item_name"), placeholder=t("item_name_placeholder"))
+
+# Auto-fill expiry from DB when item name is entered
+default_expiry = None
+db_entry = None
+if item_name.strip():
+    db_entry = lookup_food_db(item_name.strip())
+    if db_entry:
+        default_expiry = date.today() + timedelta(days=db_entry["default_days"])
+        st.caption(t("auto_expiry_hint").format(days=db_entry["default_days"], category=db_entry["category"]))
+
 purchase_date = st.date_input(t("purchase_date"), value=date.today())
-expiry_date = st.date_input(t("expiry_date"), value=None)
+expiry_date = st.date_input(t("expiry_date"), value=default_expiry)
 
 if st.button(t("add_button"), type="primary"):
     if not item_name.strip():
@@ -130,6 +250,31 @@ if st.session_state.fridge_items:
             bg_color = "#F0F0F0"
             border_color = "#E0E0E0"
 
+        # Build freeze tip HTML if expiry <= 2 days and freezable
+        freeze_tip_html = ""
+        if days <= 2:
+            db_info = lookup_food_db(item["name"])
+            if db_info and db_info["freezable"] and db_info["freeze_tip"]:
+                freeze_tip_html = (
+                    f'<div style="background:#E3F2FD; border-radius:4px; padding:6px 8px; '
+                    f'margin-top:6px; font-size:0.85rem;">'
+                    f'\U0001F9CA {t("freeze_tip_label")}: {item["name"]}\u2192{db_info["freeze_tip"]}'
+                    f'</div>'
+                )
+
+        # Build recipe link HTML if expiry <= 3 days
+        recipe_html = ""
+        if days <= 3:
+            import urllib.parse
+            search_query = urllib.parse.quote(item["name"])
+            recipe_url = f"https://www.kurashiru.com/search?query={search_query}"
+            recipe_html = (
+                f'<div style="margin-top:6px;">'
+                f'<a href="{recipe_url}" target="_blank" style="color:#E16B5A; text-decoration:none; font-size:0.85rem;">'
+                f'\U0001F373 {t("recipe_link_label")}'
+                f'</a></div>'
+            )
+
         st.markdown(
             f'<div style="background:{bg_color}; border:1px solid {border_color}; '
             f'border-radius:8px; padding:12px; margin-bottom:8px;">'
@@ -137,6 +282,8 @@ if st.session_state.fridge_items:
             f'<div style="color:#666; font-size:0.85rem; margin-top:4px;">'
             f'{t("purchased")}: {item["purchase_date"]}</div>'
             f'<div style="font-weight:bold; margin-top:4px;">{remaining}</div>'
+            f'{freeze_tip_html}'
+            f'{recipe_html}'
             f'</div>',
             unsafe_allow_html=True,
         )
