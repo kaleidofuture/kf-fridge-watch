@@ -1,3 +1,14 @@
+---
+title: kf-fridge-watch
+emoji: 🚀
+colorFrom: green
+colorTo: blue
+sdk: streamlit
+sdk_version: 1.44.1
+app_file: app.py
+pinned: false
+---
+
 # KF-FridgeWatch
 
 > 冷蔵庫の食材期限を見える化して食品ロスを減らす。
